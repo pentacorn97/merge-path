@@ -9,6 +9,7 @@
  */
 #pragma once
 #include <cstdio>
+#include <algorithm>
 #include <assert.h>
 
 namespace merge
