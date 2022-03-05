@@ -50,7 +50,7 @@ namespace merge
     template <typename T>
     __device__ void _unit_merge(T* arr_tar, T* arr_a, T* arr_b, size_t idx, size_t size_a, size_t size_b)
     {
-        assert(size_a >= size_b);
+        // assert(size_a >= size_b);
         if (idx >= size_a+size_b) {return ;}
 
         // The 0th coord is x, and 1st is y.
@@ -120,9 +120,10 @@ namespace merge
     __global__ void merge_small_k(T* arr_tar, T* arr_a, T* arr_b, size_t size_a, size_t size_b)
     {
         size_t idx = threadIdx.x;
-        if (size_a >= size_b)
-        { _unit_merge<T>(arr_tar, arr_a, arr_b, idx, size_a, size_b); }
-        else
-        { _unit_merge<T>(arr_tar, arr_b, arr_a, idx, size_b, size_a); }
+         _unit_merge<T>(arr_tar, arr_a, arr_b, idx, size_a, size_b); 
+        // if (size_a >= size_b)
+        // { _unit_merge<T>(arr_tar, arr_a, arr_b, idx, size_a, size_b); }
+        // else
+        // { _unit_merge<T>(arr_tar, arr_b, arr_a, idx, size_b, size_a); }
     }
 }

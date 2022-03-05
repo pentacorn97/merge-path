@@ -2,7 +2,7 @@ CC = nvcc
 DIR_SRC = ./src
 DIR_OBJ = ./obj
 DIR_INC = ./inc
-FLAG = --allow-unsupported-compiler
+FLAG = --allow-unsupported-compiler --std c++14
 
 SRC = $(wildcard $(DIR_SRC)/*.cu)
 OBJ_ALL = $(patsubst %.cu, %.obj, $(addprefix $(DIR_OBJ)/, $(notdir $(SRC))))
