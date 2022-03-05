@@ -109,8 +109,8 @@ namespace merge
     {
         size_t idx = threadIdx.x;
         if (size_a >= size_b)
-        { _unit_merge(arr_tar, arr_a, arr_b, idx, size_a, size_b); }
+        { _unit_merge<T>(arr_tar, arr_a, arr_b, idx, size_a, size_b); }
         else
-        { _unit_merge(arr_tar, arr_b, arr_a, idx, size_b, size_a);}
+        { _unit_merge<T>(arr_tar, arr_b, arr_a, idx, size_b, size_a); }
     }
 }
