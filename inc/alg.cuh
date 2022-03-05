@@ -25,6 +25,28 @@ namespace merge
      * @param size_b The size of the second array.
      */
     template <typename T>
+    __device__ void _unit_merge(T* arr_tar, T* arr_a, T* arr_b, size_t idx, size_t size_a, size_t size_b);
+
+
+    /**
+     * @brief The function used to merge small tables.
+     * 
+     * @tparam T Type of data.
+     * @param arr_tar The target array.
+     * @param arr_a The first array. 
+     * @param arr_b The second array.
+     * @param size_a The size of the first array.
+     * @param size_b The size of the second array.
+     */
+    template <typename T>
+    __global__ void merge_small_k(T* arr_tar, T* arr_a, T* arr_b, size_t size_a, size_t size_b);
+
+
+
+    /////////////////////////////////////////////////////////////
+    // Implementation
+    /////////////////////////////////////////////////////////////
+    template <typename T>
     __device__ void _unit_merge(T* arr_tar, T* arr_a, T* arr_b, size_t idx, size_t size_a, size_t size_b)
     {
         assert(size_a >= size_b);
@@ -93,17 +115,6 @@ namespace merge
     }
 
 
-
-    /**
-     * @brief The function used to merge small tables.
-     * 
-     * @tparam T Type of data.
-     * @param arr_tar The target array.
-     * @param arr_a The first array. 
-     * @param arr_b The second array.
-     * @param size_a The size of the first array.
-     * @param size_b The size of the second array.
-     */
     template <typename T>
     __global__ void merge_small_k(T* arr_tar, T* arr_a, T* arr_b, size_t size_a, size_t size_b)
     {
