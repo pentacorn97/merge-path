@@ -16,3 +16,6 @@ $(DIR_OBJ)/%.obj : $(DIR_SRC)/%.cu
 
 test : $(DIR_OBJ)/test.obj
 	$(CC) $(FLAG) -o $@ $^
+
+test_big: $(DIR_OBJ)/test_big.obj
+	$(CC) $(FLAG) -o $@ $^
