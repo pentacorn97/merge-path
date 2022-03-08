@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <assert.h>
 
+#include "./alg.cuh"
+
 namespace merge
 {
     /**
@@ -197,7 +199,9 @@ namespace merge
         int crossing_x = 0;
         int crossing_y = 0;
         int diag_idx = threadIdx.x;
-        _one_diag_idx(arr_tar, arr_a, arr_b, diag_idx, size_a, size_b, &crossing_x, &crossing_y);
+        _unit_merge(arr_tar, arr_a, arr_b, diag_idx, diag_idx, size_a, size_b,
+                    &crossing_x, &crossing_y);
+        // _one_diag_idx(arr_tar, arr_a, arr_b, diag_idx, size_a, size_b, &crossing_x, &crossing_y);
         // printf("crossing_idx: (%d, %d)\n", crossing_x, crossing_y);
     }
 
@@ -221,8 +225,12 @@ namespace merge
         __shared__ int b_len;
         if (threadIdx.x <= 1)
         {
+            auto idx_ = (blockDim.x + 2) * (blockIdx.x + threadIdx.x) - threadIdx.x;
             // _one_diag_idx(arr_tar, arr_a, arr_b, (blockDim.x + 1) * (blockIdx.x + threadIdx.x), size_a, size_b, &(crossing_x[threadIdx.x]), &(crossing_y[threadIdx.x]), &(a_or_b[threadIdx.x]));
-            _one_diag_idx(arr_tar, arr_a, arr_b, (blockDim.x + 2) * (blockIdx.x + threadIdx.x) - threadIdx.x, size_a, size_b, &(crossing_x[threadIdx.x]), &(crossing_y[threadIdx.x]), &(a_or_b[threadIdx.x]));
+            _unit_merge(arr_tar, arr_a, arr_b, idx_, idx_, size_a, size_b,
+                        crossing_x+threadIdx.x, crossing_y+threadIdx.x, a_or_b+threadIdx.x);
+            // _one_diag_idx(arr_tar, arr_a, arr_b, (blockDim.x + 2) * (blockIdx.x + threadIdx.x) - threadIdx.x, size_a, size_b, 
+                            // &(crossing_x[threadIdx.x]), &(crossing_y[threadIdx.x]), &(a_or_b[threadIdx.x]));
         }
         // printf("block %d: from (%d, %d) to (%d, %d)\n", blockIdx.x, crossing_x[0], crossing_y[0], crossing_x[1], crossing_y[1]);
         __syncthreads();
@@ -238,7 +246,9 @@ namespace merge
         int tar_idx = blockIdx.x * (blockDim.x + 2) + threadIdx.x + 1;
         // printf("block %d, thread %d, diag_idx=%d\n", blockIdx.x, threadIdx.x, diag_idx);
         // printf("block %d, thread %d, astart %d, bstart %d, alen %d, blen %d, tar %d\n", blockIdx.x, threadIdx.x, a_start_idx, b_start_idx, a_len, b_len, tar_idx);
-        _one_diag(arr_tar, &(arr_a[a_start_idx]), &(arr_b[b_start_idx]), threadIdx.x, tar_idx, a_len, b_len);
+        auto idx_diag = threadIdx.x;
+        _unit_merge(arr_tar, arr_a+a_start_idx, arr_b+b_start_idx, idx_diag, tar_idx, a_len, b_len);
+        // _one_diag(arr_tar, &(arr_a[a_start_idx]), &(arr_b[b_start_idx]), threadIdx.x, tar_idx, a_len, b_len);
     }
 
 }
