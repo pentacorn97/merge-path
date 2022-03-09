@@ -67,41 +67,41 @@ namespace merge
         // The 0th coord is x, and 1st is y.
         int ll_x = 0, ll_y = 0, tr_x = 0, tr_y = 0, crt_x=0, crt_y=0;
         // size_t low_left[] = {0, 0}, top_right[] = {0, 0}, crt[] = {0, 0}; // Coords.
-        if (idx_diag > size_a)
-        {
-            ll_x = idx_diag - size_a;
-            ll_y = size_a;
-            tr_x = size_a;
-            tr_y = idx_diag - size_a;
-        }
-        else
-        {
-            ll_x = 0;
-            ll_y = idx_diag;
-            tr_x = idx_diag;
-            tr_y = 0;
-        }
-
         // if (idx_diag > size_a)
         // {
         //     ll_x = idx_diag - size_a;
         //     ll_y = size_a;
+        //     tr_x = size_a;
+        //     tr_y = idx_diag - size_a;
         // }
         // else
         // {
         //     ll_x = 0;
         //     ll_y = idx_diag;
-        // }
-        // if (idx_diag > size_b)
-        // {
-        //     tr_x = size_b;
-        //     tr_y = idx_diag - size_b;
-        // }
-        // else
-        // {
         //     tr_x = idx_diag;
         //     tr_y = 0;
         // }
+
+        if (idx_diag > size_a)
+        {
+            ll_x = idx_diag - size_a;
+            ll_y = size_a;
+        }
+        else
+        {
+            ll_x = 0;
+            ll_y = idx_diag;
+        }
+        if (idx_diag > size_b)
+        {
+            tr_x = size_b;
+            tr_y = idx_diag - size_b;
+        }
+        else
+        {
+            tr_x = idx_diag;
+            tr_y = 0;
+        }
 
         while( tr_x>=ll_x && tr_y<=ll_y )
         {
@@ -155,8 +155,16 @@ namespace merge
     template <typename T>
     __global__ void merge_small_k(T* arr_tar, T* arr_a, T* arr_b, size_t size_a, size_t size_b)
     {
+        __shared__ T sarr_[1024];
         size_t idx = threadIdx.x;
-         _unit_merge<T>(arr_tar, arr_a, arr_b, idx, idx, size_a, size_b); 
+        if (idx < size_a)
+        { sarr_[idx] = arr_a[idx]; }
+        else
+        { sarr_[idx] = arr_b[idx-size_a]; }
+        __syncthreads();
+
+        _unit_merge<T>(arr_tar, sarr_, sarr_+size_a, idx, idx, size_a, size_b); 
+        // _unit_merge<T>(arr_tar, arr_a, arr_b, idx, idx, size_a, size_b); 
         // if (size_a >= size_b)
         // { _unit_merge<T>(arr_tar, arr_a, arr_b, idx, size_a, size_b); }
         // else
