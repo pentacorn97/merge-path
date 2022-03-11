@@ -1,3 +1,12 @@
+/**
+ * @file alg_big.cuh
+ * @author  bx.zh, pentacorn97
+ * @brief  Declares the algorithms for big arrays
+ * @date 2022-03-11
+ * 
+ * @copyright Copyleft (c) 2022 all wrongs reserved.
+ * 
+ */
 #pragma once
 #include <cstdio>
 #include <algorithm>
@@ -9,41 +18,7 @@ namespace merge
 {
     /**
      * @brief The function used to merge big (siza_a+size_b>1024) tables.
-     * 
-     * @tparam T Type of data.
-     * @param arr_tar The target array.
-     * @param arr_a The first array. 
-     * @param arr_b The second array.
-     * @param diag_idx The index of the diagnal.
-     * @param size_a The size of the first array.
-     * @param size_b The size of the second array.
-     * @param crossing_x The x coordinate of the intersection between the path and the diag_idx -th cross-diagnal
-     * @param crossing_y The y coordinate of the intersection between the path and the diag_idx -th cross-diagnal
-     * @param a_or_b true if the value is taken at arr_a, else false
-     */
-    template <typename T>
-    __device__ void _one_diag_idx(T* arr_tar, T* arr_a, T* arr_b, int diag_idx, size_t size_a, size_t size_b, int *crossing_x, int *crossing_y, bool *a_or_b);
-    
-    /**
-     * @brief The function used to merge big (siza_a+size_b>1024) tables.
-     * 
-     * @tparam T Type of data.
-     * @param arr_tar The target array.
-     * @param arr_a The first array. 
-     * @param arr_b The second array.
-     * @param diag_idx The index of the diagnal.
-     * @param tar_idx The index of the target array at which we should put the result.
-     * @param size_a The size of the first array.
-     * @param size_b The size of the second array.
-     */
-    template <typename T>
-    __device__ void _one_diag(T* arr_tar, T* arr_a, T* arr_b, int diag_idx, int tar_idx, size_t size_a, size_t size_b);
-
-    template <typename T>
-    __global__ void merge_small_idx_k(T* arr_tar, T* arr_a, T* arr_b, size_t size_a, size_t size_b);
-
-    /**
-     * @brief The function used to merge big (siza_a+size_b>1024) tables.
+     *        This function uses single-thread partition and multi-thread merge
      * 
      * @tparam T Type of data.
      * @param arr_tar The target array.
@@ -55,162 +30,48 @@ namespace merge
     template <typename T>
     __global__ void merge_big_k(T* arr_tar, T* arr_a, T* arr_b, size_t size_a, size_t size_b);
 
+    /**
+     * @brief The function used to partition big (siza_a+size_b>1024) tables.
+     *        This function uses multi-thread partition
+     * 
+     * @tparam T Type of data.
+     * @param arr_tar The target array.
+     * @param arr_a The first array. 
+     * @param arr_b The second array.
+     * @param size_a The size of the first array.
+     * @param size_b The size of the second array.
+     * @param crossing_x The array used to store x idices of intersection points.
+     * @param crossing_y The array used to store y idices of intersection points.
+     * @param a_or_b true: arr_a value taken at intersection; false: arr_b value taken at intersection.
+     */
+    template <typename T>
+    __global__ void partition_k(T* arr_tar, T* arr_a, T* arr_b, size_t size_a, size_t size_b, int* crossing_x, int* crossing_y, int* a_or_b);
+
+    /**
+     * @brief The function used to merge big (siza_a+size_b>1024) tables, given the partition results.
+     *        This function uses multi-thread merge
+     * 
+     * @tparam T Type of data.
+     * @param arr_tar The target array.
+     * @param arr_a The first array. 
+     * @param arr_b The second array.
+     * @param size_a The size of the first array.
+     * @param size_b The size of the second array.
+     * @param crossing_x The array used to store x idices of intersection points.
+     * @param crossing_y The array used to store y idices of intersection points.
+     * @param a_or_b true: arr_a value taken at intersection; false: arr_b value taken at intersection.
+     */
+    template <typename T>
+    __global__ void merge_k(T* arr_tar, T* arr_a, T* arr_b, size_t size_a, size_t size_b, int* crossing_x, int* crossing_y, int* a_or_b);
+    
 
     /////////////////////////////////////////////////////////////
     // Implementation
     /////////////////////////////////////////////////////////////
     template <typename T>
-    __device__ void _one_diag_idx(T* arr_tar, T* arr_a, T* arr_b, int diag_idx, size_t size_a, size_t size_b, int *crossing_x, int *crossing_y, bool* a_or_b)
-    {
-        if (diag_idx >= size_a + size_b)
-        {
-            *crossing_x = size_b;
-            *crossing_y = size_a;
-            return;
-        }
-
-        // The 0th coord is x, and 1st is y.
-        int k_x = 0, k_y = 0, p_x = 0, p_y = 0, q_x = 0, q_y = 0;   // k: bottom left of the diagnal,
-                                                                    // p: top right of the diagnal,
-                                                                    // q: mid point of the diagnal
-        if (diag_idx > size_a)
-        {
-            k_x = diag_idx - size_a;
-            k_y = size_a;
-        }
-        else
-        {
-            k_x = 0;
-            k_y = diag_idx;
-        }
-        if (diag_idx > size_b)
-        {
-            p_x = size_b;
-            p_y = diag_idx - size_b;
-        }
-        else
-        {
-            p_x = diag_idx;
-            p_y = 0;
-        }
-        while (p_x>=k_x && p_y<=k_y)
-        {
-            int offset = (k_y - p_y) / 2;
-            q_x = k_x + offset;
-            q_y = k_y - offset;
-            if (q_y == size_a || q_x == 0 || arr_a[q_y] > arr_b[q_x-1])
-            {
-                if (q_y == 0 || q_x == size_b || arr_a[q_y-1] <= arr_b[q_x])
-                {
-                    if (q_y < size_a && (q_x == size_b || arr_a[q_y] <= arr_b[q_x]))
-                    {
-                        arr_tar[diag_idx] = arr_a[q_y];
-                        *a_or_b = true;
-                    }
-                    else
-                    {
-                        arr_tar[diag_idx] = arr_b[q_x];
-                        *a_or_b = false;
-                    }
-                    // printf("(%d, %d)\n", q_x, q_y);
-                    *crossing_x = q_x;
-                    *crossing_y = q_y;
-                    break;
-                }
-                else
-                {
-                    k_x = q_x + 1;
-                    k_y = q_y - 1;
-                }
-            }
-            else
-            {
-                p_x = q_x - 1;
-                p_y = q_y + 1;
-            }
-        }
-    }
-
-    template <typename T>
-    __device__ void _one_diag(T* arr_tar, T* arr_a, T* arr_b, int diag_idx, int tar_idx, size_t size_a, size_t size_b)
-    {
-        if (diag_idx >= size_a + size_b){return;}
-
-        // The 0th coord is x, and 1st is y.
-        int k_x = 0, k_y = 0, p_x = 0, p_y = 0, q_x = 0, q_y = 0;   // k: bottom left of the diagnal,
-                                                                    // p: top right of the diagnal,
-                                                                    // q: mid point of the diagnal
-        if (diag_idx > size_a)
-        {
-            k_x = diag_idx - size_a;
-            k_y = size_a;
-        }
-        else
-        {
-            k_x = 0;
-            k_y = diag_idx;
-        }
-        if (diag_idx > size_b)
-        {
-            p_x = size_b;
-            p_y = diag_idx - size_b;
-        }
-        else
-        {
-            p_x = diag_idx;
-            p_y = 0;
-        }
-        while (p_x>=k_x && p_y<=k_y)
-        {
-            int offset = (k_y - p_y) / 2;
-            q_x = k_x + offset;
-            q_y = k_y - offset;
-            if (q_y == size_a || q_x == 0 || arr_a[q_y] > arr_b[q_x-1])
-            {
-                if (q_y == 0 || q_x == size_b || arr_a[q_y-1] <= arr_b[q_x])
-                {
-                    if (q_y < size_a && (q_x == size_b || arr_a[q_y] <= arr_b[q_x]))
-                    {
-                        arr_tar[tar_idx] = arr_a[q_y];
-                    }
-                    else
-                    {
-                        arr_tar[tar_idx] = arr_b[q_x];
-                    }
-                    break;
-                }
-                else
-                {
-                    k_x = q_x + 1;
-                    k_y = q_y - 1;
-                }
-            }
-            else
-            {
-                p_x = q_x - 1;
-                p_y = q_y + 1;
-            }
-        }
-    }
-
-    template <typename T>
-    __global__ void merge_small_idx_k(T* arr_tar, T* arr_a, T* arr_b, size_t size_a, size_t size_b)
-    {
-        int crossing_x = 0;
-        int crossing_y = 0;
-        int diag_idx = threadIdx.x;
-        _unit_merge(arr_tar, arr_a, arr_b, diag_idx, diag_idx, size_a, size_b,
-                    &crossing_x, &crossing_y);
-        // _one_diag_idx(arr_tar, arr_a, arr_b, diag_idx, size_a, size_b, &crossing_x, &crossing_y);
-        // printf("crossing_idx: (%d, %d)\n", crossing_x, crossing_y);
-    }
-
-
-    template <typename T>
     __global__ void merge_big_k(T* arr_tar, T* arr_a, T* arr_b, size_t size_a, size_t size_b)
     {
         // partition
-        // printf("%d %d %d\n", gridDim.x * blockDim.x, size_a + size_b, gridDim.x * blockDim.x < size_a + size_b);
         if (gridDim.x * (blockDim.x + 2) < size_a + size_b || blockDim.x < 2)
         {
             return;
@@ -227,13 +88,11 @@ namespace merge
         {
             auto idx_ = (blockDim.x + 2) * (blockIdx.x + threadIdx.x) - threadIdx.x;
             // _one_diag_idx(arr_tar, arr_a, arr_b, (blockDim.x + 1) * (blockIdx.x + threadIdx.x), size_a, size_b, &(crossing_x[threadIdx.x]), &(crossing_y[threadIdx.x]), &(a_or_b[threadIdx.x]));
-            _unit_merge(arr_tar, arr_a, arr_b, idx_, idx_, size_a, size_b,
+            _unit_merge<T>(arr_tar, arr_a, arr_b, idx_, idx_, size_a, size_b,
                         crossing_x+threadIdx.x, crossing_y+threadIdx.x, a_or_b+threadIdx.x);
-            // _one_diag_idx(arr_tar, arr_a, arr_b, (blockDim.x + 2) * (blockIdx.x + threadIdx.x) - threadIdx.x, size_a, size_b, 
-                            // &(crossing_x[threadIdx.x]), &(crossing_y[threadIdx.x]), &(a_or_b[threadIdx.x]));
         }
-        // printf("block %d: from (%d, %d) to (%d, %d)\n", blockIdx.x, crossing_x[0], crossing_y[0], crossing_x[1], crossing_y[1]);
         __syncthreads();
+        
         // merge
         if (threadIdx.x == 0)
         {
@@ -244,11 +103,104 @@ namespace merge
         }
         __syncthreads();
         int tar_idx = blockIdx.x * (blockDim.x + 2) + threadIdx.x + 1;
-        // printf("block %d, thread %d, diag_idx=%d\n", blockIdx.x, threadIdx.x, diag_idx);
-        // printf("block %d, thread %d, astart %d, bstart %d, alen %d, blen %d, tar %d\n", blockIdx.x, threadIdx.x, a_start_idx, b_start_idx, a_len, b_len, tar_idx);
         auto idx_diag = threadIdx.x;
-        _unit_merge(arr_tar, arr_a+a_start_idx, arr_b+b_start_idx, idx_diag, tar_idx, a_len, b_len);
+        _unit_merge<T>(arr_tar, arr_a+a_start_idx, arr_b+b_start_idx, idx_diag, tar_idx, a_len, b_len);
         // _one_diag(arr_tar, &(arr_a[a_start_idx]), &(arr_b[b_start_idx]), threadIdx.x, tar_idx, a_len, b_len);
     }
 
+    template <typename T>
+    __global__ void partition_k(T* arr_tar, T* arr_a, T* arr_b, size_t size_a, size_t size_b, int* crossing_x, int* crossing_y, int* a_or_b)
+    {
+        if (gridDim.x * (blockDim.x + 1) < size_a + size_b || blockDim.x < 2)
+            return; // raise error;
+        __shared__ bool stop; // if stop is true, all threads proceed to merge
+        if (threadIdx.x == 0)
+            stop = false;
+        __syncthreads();
+        int idx_partition_diag = (blockDim.x + 1) * blockIdx.x;
+        // find out low-left and top-right coordinates of the diagnal
+        int ll_x = 0, ll_y = 0, tr_x = 0, tr_y = 0;
+        if (idx_partition_diag > size_a)
+        {
+            ll_x = idx_partition_diag - size_a;
+            ll_y = size_a;
+        }
+        else
+        {
+            ll_x = 0;
+            ll_y = idx_partition_diag;
+        }
+        if (idx_partition_diag > size_b)
+        {
+            tr_x = size_b;
+            tr_y = idx_partition_diag - size_b;
+        }
+        else
+        {
+            tr_x = idx_partition_diag;
+            tr_y = 0;
+        }
+        int len_diag = ll_y - tr_y + 1;
+        // each thread takes care of one point of the diagnal
+        int warpDim = warpSize > blockDim.x ? blockDim.x : warpSize;
+        int increment = blockDim.x - int(blockDim.x/warpDim);
+        // printf("block %d, thread %d, partion_diag_idx %d, len_diag %d, increment %d\n", blockIdx.x, threadIdx.x, idx_partition_diag, len_diag, increment);
+        for (int start = 0; start < len_diag && (!stop); start += increment)
+        {
+            int warpIdx = threadIdx.x / warpDim;
+            // coordinates of the point treated by this thread
+            int idx_a = ll_y-start-threadIdx.x+warpIdx;
+            int idx_b = ll_x+start+threadIdx.x-warpIdx;
+            // printf("block %d, thread %d, warp %d, partion_diag_idx %d, idx_a %d, idx_b %d\n", blockIdx.x, threadIdx.x, warpIdx, idx_partition_diag, idx_a, idx_b);
+            // a, b, a_prev, b_prev are the 4 adjacent values of the two array
+            // used to check if the current point is the intersection
+            T a, b_prev;
+            if (idx_a < 0 || idx_b > size_b)
+                break;
+            if (idx_a >= 0 && idx_a < size_a)
+                a = arr_a[idx_a];
+            if (idx_b > 0 && idx_b <= size_b)
+                b_prev = arr_b[idx_b-1];
+            
+            T a_prev = __shfl_down_sync(0xffffffff, a, 1, warpDim);
+            T b = __shfl_down_sync(0xffffffff, b_prev, 1, warpDim);
+            // printf("block %d, thread %d, warp %d, partion_diag_idx %d, idx_a %d, idx_b %d, a %d, b %d, a_prev %d, b_prev %d,\n", blockIdx.x, threadIdx.x, warpIdx, idx_partition_diag, idx_a, idx_b, a, b, a_prev, b_prev);
+            
+            if ((idx_a == size_a || idx_b == 0 || a > b_prev) && (idx_a == 0 || idx_b == size_b || a_prev <= b))
+            {
+                stop = true;
+                crossing_x[blockIdx.x] = idx_b;
+                crossing_y[blockIdx.x] = idx_a;
+                if (idx_a < size_a && (idx_b == size_b || a <= b))
+                {
+                    arr_tar[idx_partition_diag] = a;
+                    a_or_b[blockIdx.x] = true;
+                }
+                else
+                {
+                    arr_tar[idx_partition_diag] = b;
+                    a_or_b[blockIdx.x] = false;
+                }
+                // printf("NICE! block %d, thread %d, idx_a %d, idx_b %d, a %d, b %d\n", blockIdx.x, threadIdx.x, idx_a, idx_b, a, b);
+                // printf("arr_tar[%d]=%d\n", idx_partition_diag, arr_tar[idx_partition_diag]);
+            }
+        }
+    }
+
+
+    template <typename T>
+    __global__ void merge_k(T* arr_tar, T* arr_a, T* arr_b, size_t size_a, size_t size_b, int* crossing_x, int* crossing_y, int* a_or_b)
+    {
+        if (gridDim.x * (blockDim.x + 1) < size_a + size_b)
+            return;
+        int idx_tar = blockIdx.x * (blockDim.x + 1) + threadIdx.x + 1;
+        int idx_diag = threadIdx.x;
+        int idx_a_start = crossing_y[blockIdx.x] + a_or_b[blockIdx.x];
+        int idx_b_start = crossing_x[blockIdx.x] - a_or_b[blockIdx.x] + 1;
+        int a_len = crossing_y[blockIdx.x+1] - crossing_y[blockIdx.x] - a_or_b[blockIdx.x];
+        int b_len = crossing_x[blockIdx.x+1] - crossing_x[blockIdx.x] + a_or_b[blockIdx.x] - 1;
+        // printf("block %d, thread %d, a_len %d, b_len %d, idx_astart %d, idx_bstart %d, idx_tar %d, idx_diag %d\n",
+        //        blockIdx.x, threadIdx.x, a_len, b_len, idx_a_start, idx_b_start, idx_tar, idx_diag);
+        _unit_merge<T>(arr_tar, arr_a+idx_a_start, arr_b+idx_b_start, idx_diag, idx_tar, a_len, b_len);
+    }
 }

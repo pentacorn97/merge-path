@@ -1,6 +1,6 @@
 /**
  * @file alg.cuh
- * @author  bx.zh
+ * @author  bx.zh, pentacorn97
  * @brief  Declares the algorithms
  * @date 2022-03-05
  * 
