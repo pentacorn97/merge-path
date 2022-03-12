@@ -20,5 +20,8 @@ test : $(DIR_OBJ)/test.obj
 test_big: $(DIR_OBJ)/test_big.obj
 	$(CC) $(FLAG) -o $@ $^
 
+test_all: $(DIR_OBJ)/test_all.obj
+	$(CC) $(FLAG) -o $@ $^
+
 test_misc: $(DIR_OBJ)/test_misc.obj
 	$(CC) $(FLAG) -o $@ $^

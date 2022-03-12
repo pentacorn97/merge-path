@@ -15,6 +15,20 @@
 namespace merge
 {
     /**
+     * @brief  The function used to merge tables by a single thread in CPU.
+     * 
+     * @tparam T Type of data.
+     * @param arr_tar The target array.
+     * @param arr_a The first array, which is supposed to have larger size. 
+     * @param arr_b The second array.
+     * @param size_a The size of the first array.
+     * @param size_b The size of the second array.
+     */
+    template <typename T>
+    void cpu_merge(T* arr_tar, T* arr_a, T* arr_b, size_t size_a, size_t size_b);
+
+
+    /**
      * @brief The function used to merge the specified diaganal.
      * 
      * @tparam T Type of data.
@@ -169,5 +183,31 @@ namespace merge
         // { _unit_merge<T>(arr_tar, arr_a, arr_b, idx, size_a, size_b); }
         // else
         // { _unit_merge<T>(arr_tar, arr_b, arr_a, idx, size_b, size_a); }
+    }
+
+
+    template <typename T>
+    void cpu_merge(T* arr_tar, T* arr_a, T* arr_b, size_t size_a, size_t size_b)
+    {
+        size_t idx_a=0, idx_b=0;
+        while ((idx_a+idx_b) < (size_a+size_b))
+        {
+            if (idx_a >= size_a) // The array A is used out.
+            {
+                arr_tar[idx_a+idx_b] = arr_b[idx_b];
+                ++idx_b;
+            }
+            else if ((idx_b>=size_b) || arr_a[idx_a]<arr_b[idx_b]) // The array B is used out
+            // Or A[i_a] < B[i_b].
+            {
+                arr_tar[idx_a+idx_b] = arr_a[idx_a];
+                ++idx_a;
+            }
+            else // A[i_a] >= B[i_b].
+            {
+                arr_tar[idx_a+idx_b] = arr_b[idx_b];
+                ++idx_b;
+            }
+        }
     }
 }
