@@ -114,36 +114,45 @@ namespace merge
         if (gridDim.x * (blockDim.x + 1) < size_a + size_b || blockDim.x < 2)
             return; // raise error;
         __shared__ bool stop; // if stop is true, all threads proceed to merge
+        __shared__ int idx_partition_diag;
+        __shared__ int ll_x;
+        __shared__ int ll_y;
+        __shared__ int tr_y;
+        __shared__ int len_diag;
+        __shared__ int warpDim;
+        __shared__ int increment;
         if (threadIdx.x == 0)
+        {
             stop = false;
+            idx_partition_diag = (blockDim.x + 1) * blockIdx.x;
+            // find out low-left and top-right coordinates of the diagnal
+            if (idx_partition_diag > size_a)
+            {
+                ll_x = idx_partition_diag - size_a;
+                ll_y = size_a;
+            }
+            else
+            {
+                ll_x = 0;
+                ll_y = idx_partition_diag;
+            }
+            if (idx_partition_diag > size_b)
+            {
+                tr_y = idx_partition_diag - size_b;
+            }
+            else
+            {
+                tr_y = 0;
+            }
+            len_diag = ll_y - tr_y + 1;
+        }
+        if (threadIdx.x == 1)
+        {
+            warpDim = warpSize > blockDim.x ? blockDim.x : warpSize;
+            increment = blockDim.x - int(blockDim.x/warpDim);
+        }
         __syncthreads();
-        int idx_partition_diag = (blockDim.x + 1) * blockIdx.x;
-        // find out low-left and top-right coordinates of the diagnal
-        int ll_x = 0, ll_y = 0, tr_x = 0, tr_y = 0;
-        if (idx_partition_diag > size_a)
-        {
-            ll_x = idx_partition_diag - size_a;
-            ll_y = size_a;
-        }
-        else
-        {
-            ll_x = 0;
-            ll_y = idx_partition_diag;
-        }
-        if (idx_partition_diag > size_b)
-        {
-            tr_x = size_b;
-            tr_y = idx_partition_diag - size_b;
-        }
-        else
-        {
-            tr_x = idx_partition_diag;
-            tr_y = 0;
-        }
-        int len_diag = ll_y - tr_y + 1;
         // each thread takes care of one point of the diagnal
-        int warpDim = warpSize > blockDim.x ? blockDim.x : warpSize;
-        int increment = blockDim.x - int(blockDim.x/warpDim);
         // printf("block %d, thread %d, partion_diag_idx %d, len_diag %d, increment %d\n", blockIdx.x, threadIdx.x, idx_partition_diag, len_diag, increment);
         for (int start = 0; start < len_diag && (!stop); start += increment)
         {
@@ -193,12 +202,20 @@ namespace merge
     {
         if (gridDim.x * (blockDim.x + 1) < size_a + size_b)
             return;
+        __shared__ int idx_a_start;
+        __shared__ int idx_b_start;
+        __shared__ int a_len;
+        __shared__ int b_len;
+        if (threadIdx.x == 0)
+        {
+            idx_a_start = crossing_y[blockIdx.x] + a_or_b[blockIdx.x];
+            idx_b_start = crossing_x[blockIdx.x] - a_or_b[blockIdx.x] + 1;
+            a_len = crossing_y[blockIdx.x+1] - crossing_y[blockIdx.x] - a_or_b[blockIdx.x];
+            b_len = crossing_x[blockIdx.x+1] - crossing_x[blockIdx.x] + a_or_b[blockIdx.x] - 1;
+        }
         int idx_tar = blockIdx.x * (blockDim.x + 1) + threadIdx.x + 1;
         int idx_diag = threadIdx.x;
-        int idx_a_start = crossing_y[blockIdx.x] + a_or_b[blockIdx.x];
-        int idx_b_start = crossing_x[blockIdx.x] - a_or_b[blockIdx.x] + 1;
-        int a_len = crossing_y[blockIdx.x+1] - crossing_y[blockIdx.x] - a_or_b[blockIdx.x];
-        int b_len = crossing_x[blockIdx.x+1] - crossing_x[blockIdx.x] + a_or_b[blockIdx.x] - 1;
+        __syncthreads();
         // printf("block %d, thread %d, a_len %d, b_len %d, idx_astart %d, idx_bstart %d, idx_tar %d, idx_diag %d\n",
         //        blockIdx.x, threadIdx.x, a_len, b_len, idx_a_start, idx_b_start, idx_tar, idx_diag);
         _unit_merge<T>(arr_tar, arr_a+idx_a_start, arr_b+idx_b_start, idx_diag, idx_tar, a_len, b_len);

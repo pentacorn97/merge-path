@@ -25,9 +25,9 @@ int main(int argc, char* argv[])
     constexpr size_t size_b = 512;
     constexpr size_t size_ttl = size_a + size_b;
     constexpr size_t MIN_SIZE = 1024;
-    constexpr size_t MAX_SIZE = 1024*512;
-    constexpr size_t MAX_SIZE_A = 1024*256;
-    constexpr size_t MAX_SIZE_B = 1024*256;
+    constexpr size_t MAX_SIZE = 1024*32768;
+    constexpr size_t MAX_SIZE_A = 1024*16384;
+    constexpr size_t MAX_SIZE_B = 1024*16384;
     int *arr_a = new int[MAX_SIZE_A];
     int *arr_b = new int[MAX_SIZE_B];
     int *arr_m = new int[MAX_SIZE];
@@ -38,7 +38,7 @@ int main(int argc, char* argv[])
     std::sort(arr_a, arr_a+MAX_SIZE_A);
     std::sort(arr_b, arr_b+MAX_SIZE_B);
 
-    int *p_a = nullptr, *p_b = nullptr, *p_m = nullptr;
+    int *p_a = nullptr, *p_b = nullptr, *p_m = nullptr, *p_crsx, *p_crsy, *p_ab;
     cudaMalloc(&p_a, MAX_SIZE_A*sizeof(int));
     cudaMalloc(&p_b, MAX_SIZE_B*sizeof(int));
     cudaMalloc(&p_m, MAX_SIZE*sizeof(int));
@@ -58,7 +58,7 @@ int main(int argc, char* argv[])
     std::cout << "\t" << (std::is_sorted(arr_m, arr_m+size_ttl) ? "well sorted." : "not sorted.");
     std::cout << " Time used : " << dur_us.count() << "us." << std::endl;
 
-    std::cout << "CPU merge, d=1024" << std::endl;
+    std::cout << "CPU-merge, d=1024" << std::endl;
     std::fill(arr_m, arr_m+size_ttl, 0);
     t_start = std::chrono::high_resolution_clock::now();
     for (size_t i=0; i<REPEAT_TIMES; ++i)
@@ -70,9 +70,9 @@ int main(int argc, char* argv[])
 
     /////////////////////////////////////////////
     // Test the time of execution of merge-large.
-    std::vector<double> vec_t_gpu, vec_t_cpu;
+    std::vector<double> vec_t_gpu, vec_t_mt_gpu, vec_t_cpu;
     std::vector<int> vec_d;
-    std::cout << "GPU merge-large" << std::endl;
+    std::cout << "GPU merge-large single-thread" << std::endl;
     for(size_t _size=2; _size<=MAX_SIZE_A; _size*=2 )
     {
         std::fill(arr_m, arr_m+MAX_SIZE, 0);
@@ -80,7 +80,7 @@ int main(int argc, char* argv[])
         vec_d.push_back(_size_m);
         t_start = std::chrono::high_resolution_clock::now();
         for (size_t i=0; i<REPEAT_TIMES; ++i)
-        { merge::merge_big_k<int><<<512, 1024>>>(p_m, p_a, p_b, _size, _size); }
+        { merge::merge_big_k<int><<<32768, 1024>>>(p_m, p_a, p_b, _size, _size); }
         t_stop = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::micro> dur_us = (t_stop - t_start);
         cudaMemcpy(arr_m, p_m, _size_m*sizeof(int), cudaMemcpyDeviceToHost);
@@ -89,7 +89,33 @@ int main(int argc, char* argv[])
         std::cout << " Time used : " << dur_us.count() << "us." << std::endl;
         vec_t_gpu.push_back(dur_us.count());
     }
-    std::cout << "CPU merge large" << std::endl;
+
+    std::cout << "GPU merge-large multi-thread" << std::endl;
+    for(size_t _size=2; _size<=MAX_SIZE_A; _size*=2 )
+    {
+        std::fill(arr_m, arr_m+MAX_SIZE, 0);
+        size_t _size_m = _size * 2;
+        int n_threads = _size_m > 1024 ? 1024: _size_m;
+        int n_blocks = _size_m / n_threads + 1;
+        cudaMalloc(&p_crsx, (n_blocks+1)*sizeof(int));
+        cudaMalloc(&p_crsy, (n_blocks+1)*sizeof(int));
+        cudaMalloc(&p_ab, (n_blocks+1)*sizeof(bool));
+        t_start = std::chrono::high_resolution_clock::now();
+        for (size_t i=0; i<REPEAT_TIMES; ++i)
+        {
+            merge::partition_k<int><<<n_blocks, n_threads>>>(p_m, p_a, p_b, _size, _size, p_crsx, p_crsy, p_ab);
+            merge::merge_k<int><<<n_blocks, n_threads>>>(p_m, p_a, p_b, _size, _size, p_crsx, p_crsy, p_ab);
+        }
+        t_stop = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::micro> dur_us = (t_stop - t_start);
+        cudaMemcpy(arr_m, p_m, _size_m*sizeof(int), cudaMemcpyDeviceToHost);
+        std::cout << "\t d=" << _size_m << "\t\t";
+        std::cout << (std::is_sorted(arr_m, arr_m+_size_m) ? "well sorted." : "not sorted.");
+        std::cout << " Time used : " << dur_us.count() << "us." << std::endl;
+        vec_t_mt_gpu.push_back(dur_us.count());
+    }
+
+    std::cout << "CPU merge-large" << std::endl;
     for(size_t _size=2; _size<=MAX_SIZE_A; _size*=2 )
     {
         std::fill(arr_m, arr_m+size_ttl, 0);
