@@ -11,14 +11,18 @@ __global__ void test_idxs()
 int main(int argc, char* argv[])
 {
     // test_idxs<<<2,3>>>();
-    
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    float time_spent = 0;
+    int REPEAT_TIME = 1;
     std::default_random_engine generator;
-    std::uniform_int_distribution<int> gen(0, 1000); // 100000
+    std::uniform_int_distribution<int> gen(0, 100000); // 100000
     // Test the int type.
-    constexpr size_t size_a = 48; // 30000
-    constexpr size_t size_b = 36; // 35600
-    constexpr size_t n_blocks = 12; // 64
-    constexpr size_t n_threads = 6; // 1024
+    constexpr size_t size_a = 30000; // 30000
+    constexpr size_t size_b = 35664; // 35600
+    constexpr size_t n_blocks = 64; // 64
+    constexpr size_t n_threads = 1024; // 1024
     constexpr size_t size_ttl = size_a + size_b;
     int arr_a[size_a] = {}, arr_b[size_b] = {}, arr_m[size_ttl] = {};
     // int crossing_x[n_blocks+1] {0}, crossing_y[n_blocks+1] {0}, a_or_b[n_blocks] {false};
@@ -36,7 +40,7 @@ int main(int argc, char* argv[])
     std::cout << "b:\n";
     for(size_t i=0; i<size_b; ++i) { std::cout << arr_b[i] << " "; }
     std::cout << std::endl;
-
+/*
     int *p_a = nullptr, *p_b = nullptr, *p_m = nullptr, *p_crsx, *p_crsy, *p_ab;
     cudaMalloc(&p_a, size_a*sizeof(int));
     cudaMalloc(&p_b, size_b*sizeof(int));
@@ -46,8 +50,6 @@ int main(int argc, char* argv[])
     cudaMalloc(&p_ab, (n_blocks+1)*sizeof(bool));
     cudaMemcpy(p_a, arr_a, size_a*sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(p_b, arr_b, size_b*sizeof(int), cudaMemcpyHostToDevice);
-    // cudaMemcpy(p_crsx, crossing_x, (n_blocks+1)*sizeof(int), cudaMemcpyHostToDevice);
-    // cudaMemcpy(p_crsy, crossing_y, (n_blocks+1)*sizeof(int), cudaMemcpyHostToDevice);
 
     std::cout << "Merge_big (a,b)" << std::endl;
     std::fill(arr_m, arr_m+size_ttl, 0);
@@ -105,5 +107,45 @@ int main(int argc, char* argv[])
     for(size_t i=0; i<=n_blocks; ++i) 
     { std::cout << (a_or_b[i] ? "true" : "false") << " "; }
     std::cout << std::endl;
+*/
+
+    int *p_a = nullptr, *p_b = nullptr, *p_m = nullptr;
+    cudaMalloc(&p_a, size_a*sizeof(int));
+    cudaMalloc(&p_b, size_b*sizeof(int));
+    cudaMalloc(&p_m, size_ttl*sizeof(int));
+    cudaMemcpy(p_a, arr_a, size_a*sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(p_b, arr_b, size_b*sizeof(int), cudaMemcpyHostToDevice);
+
+    std::cout << "Merge (a, b)" << std::endl;
+    std::fill(arr_m, arr_m+size_ttl, 0);
+
+    cudaEventRecord(start, 0);
+    for (auto i=0; i<REPEAT_TIME; ++i)
+    { merge::merge_big_2_k<int><<<n_blocks, n_threads>>>(p_m, p_a, p_b, size_a, size_b); }
+    cudaEventRecord(stop, 0);
+
+    cudaMemcpy(arr_m, p_m, size_ttl*sizeof(int), cudaMemcpyDeviceToHost);
+    cudaEventElapsedTime(&time_spent, start, stop);
+    std::cout << "m: ";
+    for(size_t i=0; i<size_ttl; ++i) 
+    { std::cout << arr_m[i] << " "; }
+    std::cout << (std::is_sorted(arr_m, arr_m+size_ttl) ? "well sorted." : "not sorted.");
+    std::cout << "Time used : " << time_spent << "ms." << std::endl;
+
+    // Test b first.
+    std::cout << "Merge (b, a)" << std::endl;
+    cudaEventRecord(start, 0);
+    for (auto i=0; i<REPEAT_TIME; ++i)
+    { merge::merge_big_2_k<int><<<n_blocks, n_threads>>>(p_m, p_b, p_a, size_b, size_a); }
+    cudaEventRecord(stop, 0);
+
+    cudaMemcpy(arr_m, p_m, size_ttl*sizeof(int), cudaMemcpyDeviceToHost);
+    cudaEventElapsedTime(&time_spent, start, stop);
+    std::cout << "m: ";
+    for(size_t i=0; i<size_ttl; ++i) 
+    { std::cout << arr_m[i] << " "; }
+    std::cout << (std::is_sorted(arr_m, arr_m+size_ttl) ? "well sorted." : "not sorted.");
+    std::cout << "Time used : " << time_spent << "ms." << std::endl;
+
     return 0;
 }
