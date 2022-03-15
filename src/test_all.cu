@@ -58,7 +58,7 @@ int main(int argc, char* argv[])
     cudaMemcpy(arr_m, p_m, size_ttl*sizeof(int), cudaMemcpyDeviceToHost);
     std::cout << "\t" << (std::is_sorted(arr_m, arr_m+size_ttl) ? "well sorted." : "not sorted.");
     std::cout << " Time used : " << dur_us.count() << "us." << std::endl;
-
+/*
     std::cout << "CPU-merge, d=1024" << std::endl;
     std::fill(arr_m, arr_m+size_ttl, 0);
     t_start = std::chrono::high_resolution_clock::now();
@@ -68,11 +68,29 @@ int main(int argc, char* argv[])
     dur_us = (t_stop - t_start);
     std::cout << "\t" << (std::is_sorted(arr_m, arr_m+size_ttl) ? "well sorted." : "not sorted.");
     std::cout << " Time used : " << dur_us.count() << "us." << std::endl;
-
+*/
     /////////////////////////////////////////////
     // Test the time of execution of merge-large.
-    std::vector<double> vec_t_gpu, vec_t_mt_gpu, vec_t_cpu;
+    std::vector<double> vec_t_gpu_small, vec_t_st_gpu, vec_t_mt_gpu, vec_t_cpu;
     std::vector<int> vec_d;
+    std::cout << "GPU merge-small" << std::endl;
+    for (size_t _size=2; _size <= 512 && _size <= MAX_SIZE_A; _size *= 2 )
+    {
+        std::fill(arr_m, arr_m+MAX_SIZE, 0);
+        size_t _size_m = _size * 2;
+        t_start = std::chrono::high_resolution_clock::now();
+        for (size_t i=0; i<REPEAT_TIMES; ++i)
+        { merge::merge_small_k<int><<<1, 1024>>>(p_m, p_a, p_b, _size, _size); }
+        t_stop = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::micro> dur_us = (t_stop - t_start);
+        cudaMemcpy(arr_m, p_m, _size_m*sizeof(int), cudaMemcpyDeviceToHost);
+        std::cout << "\t d=" << _size_m << "\t\t";
+        std::cout << (std::is_sorted(arr_m, arr_m+_size_m) ? "well sorted." : "not sorted.");
+        std::cout << " Time used : " << dur_us.count() << "us." << std::endl;
+        vec_t_gpu_small.push_back(dur_us.count());
+    }
+
+
     std::cout << "GPU merge-large single-thread" << std::endl;
     for(size_t _size=2; _size<=MAX_SIZE_A; _size*=2 )
     {
@@ -88,7 +106,7 @@ int main(int argc, char* argv[])
         std::cout << "\t d=" << _size_m << "\t\t";
         std::cout << (std::is_sorted(arr_m, arr_m+_size_m) ? "well sorted." : "not sorted.");
         std::cout << " Time used : " << dur_us.count() << "us." << std::endl;
-        vec_t_gpu.push_back(dur_us.count());
+        vec_t_st_gpu.push_back(dur_us.count());
     }
 
     std::cout << "GPU merge-large multi-thread" << std::endl;
@@ -138,10 +156,14 @@ int main(int argc, char* argv[])
     if(argc >= 2)
     {
         std::ofstream result(argv[1]);
-        result << "d, GPU, CPU \n";
-        for (int i=0; i<vec_d.size(); ++i)
+        result << "d, GPU-merge_small, GPU-merge_big-single_thread_partition, GPU-merge_big-multi_thread_partition, CPU \n";
+        for (int i=0; i<vec_t_gpu_small.size(); ++i)
         {
-            result << vec_d[i] << ", " << vec_t_gpu[i] << "," << vec_t_cpu[i] << "\n";
+            result << vec_d[i] << ", " << vec_t_gpu_small[i] << ", " << vec_t_st_gpu[i] << ", " << vec_t_mt_gpu[i] << "," << vec_t_cpu[i] << "\n";
+        }
+        for (int i=vec_t_gpu_small.size(); i<vec_d.size(); ++i)
+        {
+            result << vec_d[i] << ", " << ", " << vec_t_st_gpu[i] << ", " << vec_t_mt_gpu[i] << "," << vec_t_cpu[i] << "\n";
         }
         result.close();
     }
