@@ -5,7 +5,7 @@
 #include "../inc/alg.cuh"
 #include "../inc/alg_big.cuh"
 
-typedef double TYPE;
+using TYPE = double;
 
 int main(int argc, char* argv[])
 {
@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
     dur_us = (t_stop - t_start);
     std::cout << " Time used : " << dur_us.count() << "us." << std::endl;
 
-    int *p_a = nullptr, *p_b = nullptr, *p_m = nullptr;
+    TYPE *p_a = nullptr, *p_b = nullptr, *p_m = nullptr;
     // int *p_a = nullptr, *p_b = nullptr, *p_m = nullptr, *p_crsx, *p_crsy, *p_ab;
     // cudaMalloc(&p_a, MAX_SIZE_A*sizeof(int));
     // cudaMalloc(&p_b, MAX_SIZE_B*sizeof(int));
@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
     // cudaEventRecord(start, 0);
     t_start = std::chrono::high_resolution_clock::now();
     for (size_t i=0; i<REPEAT_TIMES; ++i)
-    { merge::merge_small_k<int><<<1, 1024, 1024*sizeof(TYPE)>>>(p_m, p_a, p_b, size_a, size_b); }
+    { merge::merge_small_k<TYPE><<<1, 1024, 1024*sizeof(TYPE)>>>(p_m, p_a, p_b, size_a, size_b); }
     // cudaEventRecord(stop, 0);
     // cudaEventElapsedTime(&time_spent, start, stop);
     t_stop = std::chrono::high_resolution_clock::now();
@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
         size_t _size_m = _size * 2;
         t_start = std::chrono::high_resolution_clock::now();
         for (size_t i=0; i<REPEAT_TIMES; ++i)
-        { merge::merge_small_k<int><<<1, 1024>>>(p_m, p_a, p_b, _size, _size); }
+        { merge::merge_small_k<TYPE><<<1, 1024>>>(p_m, p_a, p_b, _size, _size); }
         t_stop = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::micro> dur_us = (t_stop - t_start);
         cudaMemcpy(arr_m, p_m, _size_m*sizeof(TYPE), cudaMemcpyDeviceToHost);
@@ -117,7 +117,7 @@ int main(int argc, char* argv[])
         vec_d.push_back(_size_m);
         t_start = std::chrono::high_resolution_clock::now();
         for (size_t i=0; i<REPEAT_TIMES; ++i)
-        { merge::merge_big_k<int><<<32768, 1024>>>(p_m, p_a, p_b, _size, _size); }
+        { merge::merge_big_k<TYPE><<<32768, 1024>>>(p_m, p_a, p_b, _size, _size); }
         t_stop = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::micro> dur_us = (t_stop - t_start);
         cudaMemcpy(arr_m, p_m, _size_m*sizeof(TYPE), cudaMemcpyDeviceToHost);
@@ -143,7 +143,7 @@ int main(int argc, char* argv[])
         t_start = std::chrono::high_resolution_clock::now();
         for (size_t i=0; i<REPEAT_TIMES; ++i)
         {
-            merge::merge_big_2_k<int><<<n_blocks, n_threads>>>(p_m, p_a, p_b, _size, _size);
+            merge::merge_big_2_k<TYPE><<<n_blocks, n_threads>>>(p_m, p_a, p_b, _size, _size);
         }
         t_stop = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::micro> dur_us = (t_stop - t_start);
