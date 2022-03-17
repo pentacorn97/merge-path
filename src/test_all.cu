@@ -5,7 +5,7 @@
 #include "../inc/alg.cuh"
 #include "../inc/alg_big.cuh"
 
-using TYPE = double;
+using TYPE = int;
 
 int main(int argc, char* argv[])
 {
@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
     // cudaEventRecord(start, 0);
     t_start = std::chrono::high_resolution_clock::now();
     for (size_t i=0; i<REPEAT_TIMES; ++i)
-    { merge::merge_small_k<TYPE><<<1, 1024, 1024*sizeof(TYPE)>>>(p_m, p_a, p_b, size_a, size_b); }
+    { merge::merge_small_k<TYPE><<<1, 1024>>>(p_m, p_a, p_b, size_a, size_b); }
     // cudaEventRecord(stop, 0);
     // cudaEventElapsedTime(&time_spent, start, stop);
     t_stop = std::chrono::high_resolution_clock::now();
@@ -98,10 +98,15 @@ int main(int argc, char* argv[])
         size_t _size_m = _size * 2;
         t_start = std::chrono::high_resolution_clock::now();
         for (size_t i=0; i<REPEAT_TIMES; ++i)
-        { merge::merge_small_k<TYPE><<<1, 1024>>>(p_m, p_a, p_b, _size, _size); }
+        { 
+            cudaMemcpy(p_a, arr_a, _size*sizeof(TYPE), cudaMemcpyHostToDevice);
+            cudaMemcpy(p_b, arr_b, _size*sizeof(TYPE), cudaMemcpyHostToDevice);
+            merge::merge_small_k<TYPE><<<1, 1024>>>(p_m, p_a, p_b, _size, _size); 
+            cudaMemcpy(arr_m, p_m, _size_m*sizeof(TYPE), cudaMemcpyDeviceToHost);
+        }
         t_stop = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::micro> dur_us = (t_stop - t_start);
-        cudaMemcpy(arr_m, p_m, _size_m*sizeof(TYPE), cudaMemcpyDeviceToHost);
+        // cudaMemcpy(arr_m, p_m, _size_m*sizeof(TYPE), cudaMemcpyDeviceToHost);
         std::cout << "\t d=" << _size_m << "\t\t";
         std::cout << (std::is_sorted(arr_m, arr_m+_size_m) ? "well sorted." : "not sorted.");
         std::cout << " Time used : " << dur_us.count() << "us." << std::endl;
@@ -117,10 +122,15 @@ int main(int argc, char* argv[])
         vec_d.push_back(_size_m);
         t_start = std::chrono::high_resolution_clock::now();
         for (size_t i=0; i<REPEAT_TIMES; ++i)
-        { merge::merge_big_k<TYPE><<<32768, 1024>>>(p_m, p_a, p_b, _size, _size); }
+        { 
+            cudaMemcpy(p_a, arr_a, _size*sizeof(TYPE), cudaMemcpyHostToDevice);
+            cudaMemcpy(p_b, arr_b, _size*sizeof(TYPE), cudaMemcpyHostToDevice);
+            merge::merge_big_k<TYPE><<<32768, 1024>>>(p_m, p_a, p_b, _size, _size); 
+            cudaMemcpy(arr_m, p_m, _size_m*sizeof(TYPE), cudaMemcpyDeviceToHost);
+        }
         t_stop = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::micro> dur_us = (t_stop - t_start);
-        cudaMemcpy(arr_m, p_m, _size_m*sizeof(TYPE), cudaMemcpyDeviceToHost);
+        // cudaMemcpy(arr_m, p_m, _size_m*sizeof(TYPE), cudaMemcpyDeviceToHost);
         std::cout << "\t d=" << _size_m << "\t\t";
         std::cout << (std::is_sorted(arr_m, arr_m+_size_m) ? "well sorted." : "not sorted.");
         std::cout << " Time used : " << dur_us.count() << "us." << std::endl;
@@ -143,11 +153,14 @@ int main(int argc, char* argv[])
         t_start = std::chrono::high_resolution_clock::now();
         for (size_t i=0; i<REPEAT_TIMES; ++i)
         {
+            cudaMemcpy(p_a, arr_a, _size*sizeof(TYPE), cudaMemcpyHostToDevice);
+            cudaMemcpy(p_b, arr_b, _size*sizeof(TYPE), cudaMemcpyHostToDevice);
             merge::merge_big_2_k<TYPE><<<n_blocks, n_threads>>>(p_m, p_a, p_b, _size, _size);
+            cudaMemcpy(arr_m, p_m, _size_m*sizeof(TYPE), cudaMemcpyDeviceToHost);
         }
         t_stop = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::micro> dur_us = (t_stop - t_start);
-        cudaMemcpy(arr_m, p_m, _size_m*sizeof(TYPE), cudaMemcpyDeviceToHost);
+        // cudaMemcpy(arr_m, p_m, _size_m*sizeof(TYPE), cudaMemcpyDeviceToHost);
         std::cout << "\t d=" << _size_m << "\t\t";
         std::cout << (std::is_sorted(arr_m, arr_m+_size_m) ? "well sorted." : "not sorted.");
         std::cout << " Time used : " << dur_us.count() << "us." << std::endl;
