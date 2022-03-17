@@ -28,9 +28,9 @@ int main(int argc, char* argv[])
     constexpr size_t size_b = 512;
     constexpr size_t size_ttl = size_a + size_b;
     constexpr size_t MIN_SIZE = 1024;
-    constexpr size_t MAX_SIZE = 1024*1024;
-    constexpr size_t MAX_SIZE_A = 1024*512;
-    constexpr size_t MAX_SIZE_B = 1024*512;
+    constexpr size_t MAX_SIZE = 1024*256;
+    constexpr size_t MAX_SIZE_A = 1024*128;
+    constexpr size_t MAX_SIZE_B = 1024*128;
     TYPE *arr_a = new TYPE[MAX_SIZE_A];
     TYPE *arr_b = new TYPE[MAX_SIZE_B];
     TYPE *arr_m = new TYPE[MAX_SIZE];
