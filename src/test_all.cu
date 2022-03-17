@@ -18,7 +18,7 @@ int main(int argc, char* argv[])
     size_t REPEAT_TIMES = 10000;
 
     std::default_random_engine generator;
-    std::uniform_real_distribution<double> gen(0, 1000000);
+    std::uniform_real_distribution<double> gen(0, 100000);
     // std::uniform_int_distribution<int> gen(0, 100000);
 
     ////////////////////////////////////
@@ -28,9 +28,9 @@ int main(int argc, char* argv[])
     constexpr size_t size_b = 512;
     constexpr size_t size_ttl = size_a + size_b;
     constexpr size_t MIN_SIZE = 1024;
-    constexpr size_t MAX_SIZE = 1024*1024*128;
-    constexpr size_t MAX_SIZE_A = 1024*1024*64;
-    constexpr size_t MAX_SIZE_B = 1024*1024*64;
+    constexpr size_t MAX_SIZE = 1024*1024;
+    constexpr size_t MAX_SIZE_A = 1024*512;
+    constexpr size_t MAX_SIZE_B = 1024*512;
     TYPE *arr_a = new TYPE[MAX_SIZE_A];
     TYPE *arr_b = new TYPE[MAX_SIZE_B];
     TYPE *arr_m = new TYPE[MAX_SIZE];
@@ -153,7 +153,7 @@ int main(int argc, char* argv[])
         std::cout << " Time used : " << dur_us.count() << "us." << std::endl;
         vec_t_mt_gpu.push_back(dur_us.count());
     }
-/*
+
     std::cout << "CPU merge-large" << std::endl;
     for(size_t _size=2; _size<=MAX_SIZE_A; _size*=2 )
     {
@@ -164,13 +164,12 @@ int main(int argc, char* argv[])
         { merge::cpu_merge(arr_m, arr_a, arr_b, _size, _size); }
         t_stop = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::micro> dur_us = (t_stop - t_start);
-        cudaMemcpy(arr_m, p_m, _size_m*sizeof(int), cudaMemcpyDeviceToHost);
         std::cout << "\t d=" << _size_m << "\t\t";
         std::cout << (std::is_sorted(arr_m, arr_m+_size_m) ? "well sorted." : "not sorted.");
         std::cout << " Time used : " << dur_us.count() << "us." << std::endl;
         vec_t_cpu.push_back(dur_us.count());
     }
-*/
+
     if(argc >= 2)
     {
         std::ofstream result(argv[1]);
